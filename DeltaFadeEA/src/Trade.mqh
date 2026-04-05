@@ -22,7 +22,7 @@ datetime lastTradeTime = 0;
 //+------------------------------------------------------------------+
 void TradeInit()
 {
-    trade.SetExpertMagicNumber(EA_MAGIC);
+    trade.SetExpertMagicNumber(MagicNumber);
     trade.SetDeviationInPoints(Slippage);
     trade.SetTypeFilling(ORDER_FILLING_FOK);
 }
@@ -90,7 +90,7 @@ void ManagePositions()
     {
         if(!posInfo.SelectByIndex(i)) continue;
         if(posInfo.Symbol() != _Symbol)        continue;
-        if(posInfo.Magic()  != EA_MAGIC)       continue;
+        if(posInfo.Magic()  != MagicNumber)       continue;
 
         ApplyTrailingStop(posInfo.Ticket());
     }
@@ -137,7 +137,7 @@ bool HasLongPosition()
     {
         if(!posInfo.SelectByIndex(i)) continue;
         if(posInfo.Symbol() == _Symbol &&
-           posInfo.Magic()  == EA_MAGIC &&
+           posInfo.Magic()  == MagicNumber &&
            posInfo.PositionType() == POSITION_TYPE_BUY)
             return true;
     }
@@ -153,7 +153,7 @@ bool HasShortPosition()
     {
         if(!posInfo.SelectByIndex(i)) continue;
         if(posInfo.Symbol() == _Symbol &&
-           posInfo.Magic()  == EA_MAGIC &&
+           posInfo.Magic()  == MagicNumber &&
            posInfo.PositionType() == POSITION_TYPE_SELL)
             return true;
     }

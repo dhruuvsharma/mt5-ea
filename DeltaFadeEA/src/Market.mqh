@@ -18,12 +18,12 @@ double typicalPrices[];
 double cumulativeVolumeDelta = 0;
 double cumulativeTickDelta   = 0;
 
-//--- Tick analysis window (size = TickAnalysisWindowSize)
+//--- Tick analysis window (size = AnalysisWindowSize)
 double   tickAnalysisData[];
 datetime tickAnalysisTimes[];
 int      tickAnalysisCount = 0;
 
-//--- Volume analysis window (size = VolumeAnalysisWindowSize)
+//--- Volume analysis window (size = AnalysisWindowSize)
 double   volumeAnalysisData[];
 datetime volumeAnalysisTimes[];
 int      volumeAnalysisCount = 0;
@@ -49,10 +49,10 @@ void MarketInit()
     ArrayInitialize(volumeWeightedPrices, 0);
     ArrayInitialize(typicalPrices,        0);
 
-    ArrayResize(tickAnalysisData,   TickAnalysisWindowSize);
-    ArrayResize(tickAnalysisTimes,  TickAnalysisWindowSize);
-    ArrayResize(volumeAnalysisData, VolumeAnalysisWindowSize);
-    ArrayResize(volumeAnalysisTimes,VolumeAnalysisWindowSize);
+    ArrayResize(tickAnalysisData,    AnalysisWindowSize);
+    ArrayResize(tickAnalysisTimes,   AnalysisWindowSize);
+    ArrayResize(volumeAnalysisData,  AnalysisWindowSize);
+    ArrayResize(volumeAnalysisTimes, AnalysisWindowSize);
 
     ArrayInitialize(tickAnalysisData,   0);
     ArrayInitialize(volumeAnalysisData, 0);
@@ -64,8 +64,7 @@ void MarketInit()
 void InitializeAnalysisWindows()
 {
     MqlRates rates[];
-    int barsToCopy = MathMax(TickAnalysisWindowSize, VolumeAnalysisWindowSize) * 2;
-    int copied = CopyRates(_Symbol, _Period, 1, barsToCopy, rates);
+    int copied = CopyRates(_Symbol, _Period, 1, AnalysisWindowSize * 2, rates);
 
     if(copied <= 0)
     {
@@ -73,25 +72,24 @@ void InitializeAnalysisWindows()
         return;
     }
 
-    tickAnalysisCount = MathMin(copied, TickAnalysisWindowSize);
-    for(int i = 0; i < tickAnalysisCount; i++)
-    {
-        int idx = MathMin(i, copied - 1);
-        tickAnalysisData[i]  = CandleDelta(rates[idx]);
-        tickAnalysisTimes[i] = rates[idx].time;
-    }
+    int count = MathMin(copied, AnalysisWindowSize);
 
-    volumeAnalysisCount = MathMin(copied, VolumeAnalysisWindowSize);
-    for(int i = 0; i < volumeAnalysisCount; i++)
+    tickAnalysisCount   = count;
+    volumeAnalysisCount = count;
+
+    for(int i = 0; i < count; i++)
     {
         int idx = MathMin(i, copied - 1);
-        volumeAnalysisData[i]  = CandleDelta(rates[idx]);
+        double delta = CandleDelta(rates[idx]);
+
+        tickAnalysisData[i]    = delta;
+        tickAnalysisTimes[i]   = rates[idx].time;
+        volumeAnalysisData[i]  = delta;
         volumeAnalysisTimes[i] = rates[idx].time;
     }
 
-    Print("[", EA_NAME, "] Analysis windows initialised — Tick: ",
-          tickAnalysisCount, "/", TickAnalysisWindowSize,
-          "  Volume: ", volumeAnalysisCount, "/", VolumeAnalysisWindowSize);
+    Print("[", EA_NAME, "] Analysis windows initialised — ",
+          count, "/", AnalysisWindowSize, " candles");
 }
 
 //+------------------------------------------------------------------+
@@ -276,7 +274,7 @@ void UpdateCurrentTicksPerSecond()
 //+------------------------------------------------------------------+
 void UpdateTickAnalysisWindow(double newTickDelta)
 {
-    if(tickAnalysisCount < TickAnalysisWindowSize)
+    if(tickAnalysisCount < AnalysisWindowSize)
         tickAnalysisCount++;
 
     for(int i = tickAnalysisCount - 1; i > 0; i--)
@@ -293,7 +291,7 @@ void UpdateTickAnalysisWindow(double newTickDelta)
 //+------------------------------------------------------------------+
 void UpdateVolumeAnalysisWindow(double newVolumeDelta)
 {
-    if(volumeAnalysisCount < VolumeAnalysisWindowSize)
+    if(volumeAnalysisCount < AnalysisWindowSize)
         volumeAnalysisCount++;
 
     for(int i = volumeAnalysisCount - 1; i > 0; i--)

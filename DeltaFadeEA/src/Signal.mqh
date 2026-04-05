@@ -27,111 +27,80 @@ bool signalShort = false;
 //+------------------------------------------------------------------+
 //| Clamp a threshold within [min..max] of its base, sign-aware     |
 //+------------------------------------------------------------------+
-double ApplyThresholdBounds(double raw, double base,
-                            double minMult, double maxMult, bool isBuy)
+double ApplyThresholdBounds(double raw, double base, bool isBuy)
 {
     if(isBuy)
     {
         if(raw < 0) raw = MathAbs(raw);
-        double lo = base * minMult;
-        double hi = base * maxMult;
+        double lo = base * THRESHOLD_MIN_MULT;
+        double hi = base * THRESHOLD_MAX_MULT;
         return MathMin(MathMax(raw, lo), hi);
     }
     else
     {
         if(raw > 0) raw = -raw;
-        double lo = base * minMult;   // negative
-        double hi = base * maxMult;   // negative
+        double lo = base * THRESHOLD_MIN_MULT;   // negative
+        double hi = base * THRESHOLD_MAX_MULT;   // negative
         return MathMax(MathMin(raw, lo), hi);
     }
 }
 
 //+------------------------------------------------------------------+
-//| Recalculate dynamic tick thresholds from analysis window         |
+//| Calculate dynamic thresholds from analysis window data           |
+//+------------------------------------------------------------------+
+void CalculateThresholdsFromData(double &data[], int count,
+                                  double baseBuy, double baseSell,
+                                  double &outBuy, double &outSell)
+{
+    if(count < 10)
+    {
+        outBuy  = baseBuy;
+        outSell = baseSell;
+        return;
+    }
+
+    double temp[];
+    ArrayResize(temp, count);
+    for(int i = 0; i < count; i++)
+        temp[i] = data[i];
+
+    double med = CalculateMedian(temp, count);
+    double mad = MathMax(CalculateMAD(temp, med, count), MIN_MAD_VALUE);
+
+    double rawBuy  = med + ThresholdMultiplier * mad;
+    double rawSell = med - ThresholdMultiplier * mad;
+
+    if(MathAbs(rawBuy)  < MIN_ABSOLUTE_THRESHOLD)
+        rawBuy  = (rawBuy  >= 0) ?  MIN_ABSOLUTE_THRESHOLD : -MIN_ABSOLUTE_THRESHOLD;
+    if(MathAbs(rawSell) < MIN_ABSOLUTE_THRESHOLD)
+        rawSell = (rawSell >= 0) ?  MIN_ABSOLUTE_THRESHOLD : -MIN_ABSOLUTE_THRESHOLD;
+
+    outBuy  = ApplyThresholdBounds(rawBuy,  baseBuy,  true);
+    outSell = ApplyThresholdBounds(rawSell, baseSell, false);
+}
+
+//+------------------------------------------------------------------+
+//| Recalculate dynamic tick thresholds                              |
 //+------------------------------------------------------------------+
 void CalculateDynamicTickThresholds()
 {
-    if(!EnableTickDynamicThresholds)
-    {
-        dynamicTickBuyThreshold  = baseTickBuyThreshold;
-        dynamicTickSellThreshold = baseTickSellThreshold;
-        return;
-    }
-
-    if(tickAnalysisCount < 10)
-    {
-        Print("[", EA_NAME, "] Tick analysis data insufficient (", tickAnalysisCount, "). Using base thresholds.");
-        dynamicTickBuyThreshold  = baseTickBuyThreshold;
-        dynamicTickSellThreshold = baseTickSellThreshold;
-        return;
-    }
-
-    double temp[];
-    ArrayResize(temp, tickAnalysisCount);
-    for(int i = 0; i < tickAnalysisCount; i++)
-        temp[i] = tickAnalysisData[i];
-
-    double med = CalculateMedian(temp, tickAnalysisCount);
-    double mad = MathMax(CalculateMAD(temp, med, tickAnalysisCount), MIN_MAD_VALUE);
-
-    double rawBuy  = med + TickThresholdMultiplier * mad;
-    double rawSell = med - TickThresholdMultiplier * mad;
-
-    if(MathAbs(rawBuy)  < TickMinAbsoluteThreshold)
-        rawBuy  = (rawBuy  >= 0) ?  TickMinAbsoluteThreshold : -TickMinAbsoluteThreshold;
-    if(MathAbs(rawSell) < TickMinAbsoluteThreshold)
-        rawSell = (rawSell >= 0) ?  TickMinAbsoluteThreshold : -TickMinAbsoluteThreshold;
-
-    dynamicTickBuyThreshold  = ApplyThresholdBounds(rawBuy,  baseTickBuyThreshold,
-                                TickMinThresholdMultiplier, TickMaxThresholdMultiplier, true);
-    dynamicTickSellThreshold = ApplyThresholdBounds(rawSell, baseTickSellThreshold,
-                                TickMinThresholdMultiplier, TickMaxThresholdMultiplier, false);
+    CalculateThresholdsFromData(tickAnalysisData, tickAnalysisCount,
+        baseTickBuyThreshold, baseTickSellThreshold,
+        dynamicTickBuyThreshold, dynamicTickSellThreshold);
 }
 
 //+------------------------------------------------------------------+
-//| Recalculate dynamic volume thresholds from analysis window       |
+//| Recalculate dynamic volume thresholds                            |
 //+------------------------------------------------------------------+
 void CalculateDynamicVolumeThresholds()
 {
-    if(!EnableVolumeDynamicThresholds)
-    {
-        dynamicVolumeBuyThreshold  = baseVolumeBuyThreshold;
-        dynamicVolumeSellThreshold = baseVolumeSellThreshold;
-        return;
-    }
-
-    if(volumeAnalysisCount < 10)
-    {
-        Print("[", EA_NAME, "] Volume analysis data insufficient (", volumeAnalysisCount, "). Using base thresholds.");
-        dynamicVolumeBuyThreshold  = baseVolumeBuyThreshold;
-        dynamicVolumeSellThreshold = baseVolumeSellThreshold;
-        return;
-    }
-
-    double temp[];
-    ArrayResize(temp, volumeAnalysisCount);
-    for(int i = 0; i < volumeAnalysisCount; i++)
-        temp[i] = volumeAnalysisData[i];
-
-    double med = CalculateMedian(temp, volumeAnalysisCount);
-    double mad = MathMax(CalculateMAD(temp, med, volumeAnalysisCount), MIN_MAD_VALUE);
-
-    double rawBuy  = med + VolumeThresholdMultiplier * mad;
-    double rawSell = med - VolumeThresholdMultiplier * mad;
-
-    if(MathAbs(rawBuy)  < VolumeMinAbsoluteThreshold)
-        rawBuy  = (rawBuy  >= 0) ?  VolumeMinAbsoluteThreshold : -VolumeMinAbsoluteThreshold;
-    if(MathAbs(rawSell) < VolumeMinAbsoluteThreshold)
-        rawSell = (rawSell >= 0) ?  VolumeMinAbsoluteThreshold : -VolumeMinAbsoluteThreshold;
-
-    dynamicVolumeBuyThreshold  = ApplyThresholdBounds(rawBuy,  baseVolumeBuyThreshold,
-                                  VolumeMinThresholdMultiplier, VolumeMaxThresholdMultiplier, true);
-    dynamicVolumeSellThreshold = ApplyThresholdBounds(rawSell, baseVolumeSellThreshold,
-                                  VolumeMinThresholdMultiplier, VolumeMaxThresholdMultiplier, false);
+    CalculateThresholdsFromData(volumeAnalysisData, volumeAnalysisCount,
+        baseVolumeBuyThreshold, baseVolumeSellThreshold,
+        dynamicVolumeBuyThreshold, dynamicVolumeSellThreshold);
 }
 
 //+------------------------------------------------------------------+
-//| Evaluate entry signals — contrarian delta + slope confirmation   |
+//| Evaluate entry signals — contrarian delta + optional slope       |
 //+------------------------------------------------------------------+
 void CheckTradingSignals()
 {
@@ -143,10 +112,10 @@ void CheckTradingSignals()
 
     int slope = GetVolumeLineSlope();
 
-    bool tickSell   = (cumulativeTickDelta   > dynamicTickBuyThreshold);
-    bool tickBuy    = (cumulativeTickDelta   < dynamicTickSellThreshold);
-    bool volSell    = (cumulativeVolumeDelta > dynamicVolumeBuyThreshold);
-    bool volBuy     = (cumulativeVolumeDelta < dynamicVolumeSellThreshold);
+    bool tickSell = (cumulativeTickDelta   > dynamicTickBuyThreshold);
+    bool tickBuy  = (cumulativeTickDelta   < dynamicTickSellThreshold);
+    bool volSell  = (cumulativeVolumeDelta > dynamicVolumeBuyThreshold);
+    bool volBuy   = (cumulativeVolumeDelta < dynamicVolumeSellThreshold);
 
     // Delta filter: require both or accept either
     bool sellDelta, buyDelta;

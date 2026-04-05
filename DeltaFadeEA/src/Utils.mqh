@@ -9,9 +9,6 @@
 #include "Market.mqh"
 #include "Signal.mqh"
 
-//--- Track threshold-window draw state
-bool thresholdWindowsDrawn = false;
-
 //+------------------------------------------------------------------+
 //| Chart helpers                                                    |
 //+------------------------------------------------------------------+
@@ -30,7 +27,7 @@ double ChartPriceMax(int subWin = 0)
 }
 
 //+------------------------------------------------------------------+
-//| Time-filter: is the current day + hour allowed?                  |
+//| Session filter: StartHour–EndHour, Mon–Fri only                  |
 //+------------------------------------------------------------------+
 bool IsTradingAllowed()
 {
@@ -39,36 +36,14 @@ bool IsTradingAllowed()
     MqlDateTime t;
     TimeToStruct(TimeCurrent(), t);
 
-    bool dayOk = false;
-    switch(t.day_of_week)
-    {
-        case 0: dayOk = SundayTrading;    break;
-        case 1: dayOk = MondayTrading;    break;
-        case 2: dayOk = TuesdayTrading;   break;
-        case 3: dayOk = WednesdayTrading; break;
-        case 4: dayOk = ThursdayTrading;  break;
-        case 5: dayOk = FridayTrading;    break;
-        case 6: dayOk = SaturdayTrading;  break;
-    }
-    if(!dayOk) return false;
+    // Weekends always blocked
+    if(t.day_of_week == 0 || t.day_of_week == 6) return false;
 
-    bool hourOk = false;
-    switch(t.hour)
-    {
-        case  0: hourOk = Hour00; break;  case  1: hourOk = Hour01; break;
-        case  2: hourOk = Hour02; break;  case  3: hourOk = Hour03; break;
-        case  4: hourOk = Hour04; break;  case  5: hourOk = Hour05; break;
-        case  6: hourOk = Hour06; break;  case  7: hourOk = Hour07; break;
-        case  8: hourOk = Hour08; break;  case  9: hourOk = Hour09; break;
-        case 10: hourOk = Hour10; break;  case 11: hourOk = Hour11; break;
-        case 12: hourOk = Hour12; break;  case 13: hourOk = Hour13; break;
-        case 14: hourOk = Hour14; break;  case 15: hourOk = Hour15; break;
-        case 16: hourOk = Hour16; break;  case 17: hourOk = Hour17; break;
-        case 18: hourOk = Hour18; break;  case 19: hourOk = Hour19; break;
-        case 20: hourOk = Hour20; break;  case 21: hourOk = Hour21; break;
-        case 22: hourOk = Hour22; break;  case 23: hourOk = Hour23; break;
-    }
-    return hourOk;
+    // Hour range check
+    if(StartHour <= EndHour)
+        return (t.hour >= StartHour && t.hour < EndHour);
+    else
+        return (t.hour >= StartHour || t.hour < EndHour);
 }
 
 //+------------------------------------------------------------------+
@@ -100,8 +75,8 @@ color CalculateLineColor()
     if(WindowSize < 2) return clrYellow;
     double s = volumeWeightedPrices[WindowSize - 1];
     double e = volumeWeightedPrices[0];
-    if(e > s) return UpTrendColor;
-    if(e < s) return DownTrendColor;
+    if(e > s) return UP_TREND_COLOR;
+    if(e < s) return DOWN_TREND_COLOR;
     return clrYellow;
 }
 
@@ -113,8 +88,8 @@ color GetPointColor(int idx)
     if(idx == 0 || idx == WindowSize - 1) return clrWhite;
     if(idx > 0 && idx < WindowSize - 1)
     {
-        if(volumeWeightedPrices[idx] > volumeWeightedPrices[idx - 1]) return UpTrendColor;
-        if(volumeWeightedPrices[idx] < volumeWeightedPrices[idx - 1]) return DownTrendColor;
+        if(volumeWeightedPrices[idx] > volumeWeightedPrices[idx - 1]) return UP_TREND_COLOR;
+        if(volumeWeightedPrices[idx] < volumeWeightedPrices[idx - 1]) return DOWN_TREND_COLOR;
     }
     return clrYellow;
 }
@@ -169,8 +144,6 @@ void DrawRectangle()
 //+------------------------------------------------------------------+
 void DrawVolumeFootprintLine()
 {
-    if(!ShowVolumeFootprintLine) return;
-
     MqlRates rates[];
     if(CopyRates(_Symbol, _Period, 0, WindowSize, rates) < WindowSize) return;
 
@@ -180,7 +153,7 @@ void DrawVolumeFootprintLine()
     {
         color lc = CalculateLineColor();
         ObjectSetInteger(0, "VolumeFootprint_Line", OBJPROP_COLOR, lc);
-        ObjectSetInteger(0, "VolumeFootprint_Line", OBJPROP_WIDTH, LineWidth);
+        ObjectSetInteger(0, "VolumeFootprint_Line", OBJPROP_WIDTH, FOOTPRINT_LINE_WIDTH);
         ObjectSetInteger(0, "VolumeFootprint_Line", OBJPROP_STYLE, STYLE_SOLID);
         ObjectSetInteger(0, "VolumeFootprint_Line", OBJPROP_RAY, false);
         ObjectSetInteger(0, "VolumeFootprint_Line", OBJPROP_BACK, true);
@@ -241,7 +214,7 @@ void DisplayDeltas()
         {
             ObjectSetString (0, vn, OBJPROP_TEXT, "V:" + DoubleToString(volumeDelta[i], 0));
             ObjectSetInteger(0, vn, OBJPROP_COLOR, (volumeDelta[i] >= 0) ? clrGreen : clrRed);
-            ObjectSetInteger(0, vn, OBJPROP_FONTSIZE, TextSize);
+            ObjectSetInteger(0, vn, OBJPROP_FONTSIZE, TEXT_SIZE);
             ObjectSetInteger(0, vn, OBJPROP_ANCHOR, ANCHOR_CENTER);
             ObjectSetInteger(0, vn, OBJPROP_BACK, false);
         }
@@ -252,7 +225,7 @@ void DisplayDeltas()
         {
             ObjectSetString (0, tn, OBJPROP_TEXT, "T:" + DoubleToString(tickDelta[i], 0));
             ObjectSetInteger(0, tn, OBJPROP_COLOR, (tickDelta[i] >= 0) ? clrGreen : clrRed);
-            ObjectSetInteger(0, tn, OBJPROP_FONTSIZE, TextSize);
+            ObjectSetInteger(0, tn, OBJPROP_FONTSIZE, TEXT_SIZE);
             ObjectSetInteger(0, tn, OBJPROP_ANCHOR, ANCHOR_CENTER);
             ObjectSetInteger(0, tn, OBJPROP_BACK, false);
         }
@@ -263,7 +236,7 @@ void DisplayDeltas()
         {
             ObjectSetString (0, ts, OBJPROP_TEXT, "Ts:" + DoubleToString(ticksPerSecond[i], 1));
             ObjectSetInteger(0, ts, OBJPROP_COLOR, GetTicksPerSecColor(ticksPerSecond[i]));
-            ObjectSetInteger(0, ts, OBJPROP_FONTSIZE, TextSize - 1);
+            ObjectSetInteger(0, ts, OBJPROP_FONTSIZE, TEXT_SIZE - 1);
             ObjectSetInteger(0, ts, OBJPROP_ANCHOR, ANCHOR_CENTER);
             ObjectSetInteger(0, ts, OBJPROP_BACK, false);
         }
@@ -297,7 +270,7 @@ void DisplayCumulativeValues(MqlRates &rates[])
         ObjectSetString (0, cn, OBJPROP_TEXT, StringFormat("\x03A3T: %.0f (Th: %.0f/%.0f)",
             cumulativeTickDelta, dynamicTickBuyThreshold, dynamicTickSellThreshold));
         ObjectSetInteger(0, cn, OBJPROP_COLOR, (cumulativeTickDelta >= 0) ? clrGreen : clrRed);
-        ObjectSetInteger(0, cn, OBJPROP_FONTSIZE, TextSize + 1);
+        ObjectSetInteger(0, cn, OBJPROP_FONTSIZE, TEXT_SIZE + 1);
         ObjectSetInteger(0, cn, OBJPROP_ANCHOR, ANCHOR_UPPER);
         ObjectSetInteger(0, cn, OBJPROP_BACK, false);
     }
@@ -308,7 +281,7 @@ void DisplayCumulativeValues(MqlRates &rates[])
         ObjectSetString (0, vn, OBJPROP_TEXT, StringFormat("\x03A3V: %.0f (Th: %.0f/%.0f)",
             cumulativeVolumeDelta, dynamicVolumeBuyThreshold, dynamicVolumeSellThreshold));
         ObjectSetInteger(0, vn, OBJPROP_COLOR, (cumulativeVolumeDelta >= 0) ? clrGreen : clrRed);
-        ObjectSetInteger(0, vn, OBJPROP_FONTSIZE, TextSize + 1);
+        ObjectSetInteger(0, vn, OBJPROP_FONTSIZE, TEXT_SIZE + 1);
         ObjectSetInteger(0, vn, OBJPROP_ANCHOR, ANCHOR_UPPER);
         ObjectSetInteger(0, vn, OBJPROP_BACK, false);
     }
@@ -329,8 +302,8 @@ void DisplayAverageTicksPerSecond(MqlRates &rates[])
     lo -= rng * 0.1;
     double bottom = lo - rng * 0.25;
 
-    datetime st = rates[WindowSize - 1].time;
-    datetime en = rates[0].time;
+    datetime st  = rates[WindowSize - 1].time;
+    datetime en  = rates[0].time;
     datetime mid = st + (en - st) / 2;
 
     string name = "AvgTicksPerSec";
@@ -339,7 +312,7 @@ void DisplayAverageTicksPerSecond(MqlRates &rates[])
     {
         ObjectSetString (0, name, OBJPROP_TEXT, "Avg Ts: " + DoubleToString(averageTicksPerSecond, 2) + "/s");
         ObjectSetInteger(0, name, OBJPROP_COLOR, GetTicksPerSecColor(averageTicksPerSecond));
-        ObjectSetInteger(0, name, OBJPROP_FONTSIZE, TextSize + 1);
+        ObjectSetInteger(0, name, OBJPROP_FONTSIZE, TEXT_SIZE + 1);
         ObjectSetInteger(0, name, OBJPROP_ANCHOR, ANCHOR_CENTER);
         ObjectSetInteger(0, name, OBJPROP_BACK, false);
     }
@@ -360,7 +333,7 @@ void DisplaySignal(string signal, color clr)
             dynamicVolumeBuyThreshold, dynamicVolumeSellThreshold);
         ObjectSetString (0, name, OBJPROP_TEXT, txt);
         ObjectSetInteger(0, name, OBJPROP_COLOR, clr);
-        ObjectSetInteger(0, name, OBJPROP_FONTSIZE, TextSize + 2);
+        ObjectSetInteger(0, name, OBJPROP_FONTSIZE, TEXT_SIZE + 2);
         ObjectSetInteger(0, name, OBJPROP_ANCHOR, ANCHOR_CENTER);
         ObjectSetInteger(0, name, OBJPROP_BACK, false);
     }
@@ -382,7 +355,7 @@ void DisplayTimeFilterStatus()
         ObjectSetInteger(0, sn, OBJPROP_YDISTANCE, 20);
         ObjectSetString (0, sn, OBJPROP_TEXT, "Trading: " + (ok ? "ALLOWED" : "BLOCKED"));
         ObjectSetInteger(0, sn, OBJPROP_COLOR, ok ? clrLime : clrRed);
-        ObjectSetInteger(0, sn, OBJPROP_FONTSIZE, TextSize);
+        ObjectSetInteger(0, sn, OBJPROP_FONTSIZE, TEXT_SIZE);
         ObjectSetInteger(0, sn, OBJPROP_BACK, false);
     }
 
@@ -403,7 +376,7 @@ void DisplayTimeFilterStatus()
             ObjectSetString (0, sesName, OBJPROP_TEXT, days[t.day_of_week] + " " +
                              StringFormat("%02d:%02d", t.hour, t.min));
             ObjectSetInteger(0, sesName, OBJPROP_COLOR, clrWhite);
-            ObjectSetInteger(0, sesName, OBJPROP_FONTSIZE, TextSize);
+            ObjectSetInteger(0, sesName, OBJPROP_FONTSIZE, TEXT_SIZE);
             ObjectSetInteger(0, sesName, OBJPROP_BACK, false);
         }
     }
@@ -417,18 +390,16 @@ void DisplayDynamicThresholds()
     string name = "DynamicThresholds_Display";
     ObjectDelete(0, name);
 
-    string tSt = EnableTickDynamicThresholds   ? "ACTIVE" : "FIXED";
-    string vSt = EnableVolumeDynamicThresholds ? "ACTIVE" : "FIXED";
-
     string txt = StringFormat(
-        "DYNAMIC THRESHOLDS\n"
-        "Tick (%s): %.0f/%.0f (Mult: %.2f)\n"
-        "Vol (%s): %.0f/%.0f (Mult: %.2f)\n"
+        "DYNAMIC THRESHOLDS (Mult: %.2f)\n"
+        "Tick: %.0f / %.0f\n"
+        "Vol:  %.0f / %.0f\n"
         "Data: T[%d/%d] V[%d/%d]",
-        tSt, dynamicTickBuyThreshold, dynamicTickSellThreshold, TickThresholdMultiplier,
-        vSt, dynamicVolumeBuyThreshold, dynamicVolumeSellThreshold, VolumeThresholdMultiplier,
-        tickAnalysisCount, TickAnalysisWindowSize,
-        volumeAnalysisCount, VolumeAnalysisWindowSize);
+        ThresholdMultiplier,
+        dynamicTickBuyThreshold, dynamicTickSellThreshold,
+        dynamicVolumeBuyThreshold, dynamicVolumeSellThreshold,
+        tickAnalysisCount, AnalysisWindowSize,
+        volumeAnalysisCount, AnalysisWindowSize);
 
     if(ObjectCreate(0, name, OBJ_LABEL, 0, 0, 0))
     {
@@ -437,7 +408,7 @@ void DisplayDynamicThresholds()
         ObjectSetInteger(0, name, OBJPROP_YDISTANCE, 60);
         ObjectSetString (0, name, OBJPROP_TEXT, txt);
         ObjectSetInteger(0, name, OBJPROP_COLOR, clrCyan);
-        ObjectSetInteger(0, name, OBJPROP_FONTSIZE, TextSize);
+        ObjectSetInteger(0, name, OBJPROP_FONTSIZE, TEXT_SIZE);
         ObjectSetInteger(0, name, OBJPROP_BACK, false);
     }
 }
@@ -447,11 +418,8 @@ void DisplayDynamicThresholds()
 //+------------------------------------------------------------------+
 void DrawThresholdWindows()
 {
-    if(!ShowThresholdWindows) return;
-
     MqlRates rates[];
-    int needed = MathMax(TickAnalysisWindowSize, VolumeAnalysisWindowSize);
-    if(CopyRates(_Symbol, _Period, 0, needed, rates) <= 0) return;
+    if(CopyRates(_Symbol, _Period, 0, AnalysisWindowSize, rates) <= 0) return;
 
     // --- Tick analysis window ---
     if(tickAnalysisCount > 0)
@@ -478,34 +446,32 @@ void DrawThresholdWindows()
             ObjectDelete(0, "TickAnalysisWindow");
             if(ObjectCreate(0, "TickAnalysisWindow", OBJ_RECTANGLE, 0, tStart, tLo, tEnd, tHi))
             {
-                ObjectSetInteger(0, "TickAnalysisWindow", OBJPROP_COLOR, TickWindowColor);
+                ObjectSetInteger(0, "TickAnalysisWindow", OBJPROP_COLOR, TICK_WINDOW_COLOR);
                 ObjectSetInteger(0, "TickAnalysisWindow", OBJPROP_STYLE, STYLE_SOLID);
-                ObjectSetInteger(0, "TickAnalysisWindow", OBJPROP_WIDTH, ThresholdWindowWidth);
+                ObjectSetInteger(0, "TickAnalysisWindow", OBJPROP_WIDTH, THRESHOLD_WINDOW_WIDTH);
                 ObjectSetInteger(0, "TickAnalysisWindow", OBJPROP_BACK, true);
                 ObjectSetInteger(0, "TickAnalysisWindow", OBJPROP_FILL, false);
                 ObjectSetInteger(0, "TickAnalysisWindow", OBJPROP_SELECTABLE, false);
             }
 
-            // Label
             string lbl = "TickWindowLabel";
             ObjectDelete(0, lbl);
             if(ObjectCreate(0, lbl, OBJ_TEXT, 0, tStart, tHi))
             {
-                ObjectSetString (0, lbl, OBJPROP_TEXT, "Tick Analysis (" + string(tickAnalysisCount) + "/" + string(TickAnalysisWindowSize) + ")");
-                ObjectSetInteger(0, lbl, OBJPROP_COLOR, TickWindowColor);
-                ObjectSetInteger(0, lbl, OBJPROP_FONTSIZE, TextSize - 1);
+                ObjectSetString (0, lbl, OBJPROP_TEXT, "Tick Analysis (" + string(tickAnalysisCount) + "/" + string(AnalysisWindowSize) + ")");
+                ObjectSetInteger(0, lbl, OBJPROP_COLOR, TICK_WINDOW_COLOR);
+                ObjectSetInteger(0, lbl, OBJPROP_FONTSIZE, TEXT_SIZE - 1);
                 ObjectSetInteger(0, lbl, OBJPROP_ANCHOR, ANCHOR_LEFT_UPPER);
                 ObjectSetInteger(0, lbl, OBJPROP_BACK, false);
             }
 
-            // Threshold text
             string thName = "TickThresholds_Display";
             ObjectDelete(0, thName);
             if(ObjectCreate(0, thName, OBJ_TEXT, 0, tStart + (tEnd - tStart) / 2, tLo - rng * 0.1))
             {
                 ObjectSetString (0, thName, OBJPROP_TEXT, StringFormat("Tick Th: %.0f / %.0f", dynamicTickBuyThreshold, dynamicTickSellThreshold));
-                ObjectSetInteger(0, thName, OBJPROP_COLOR, TickWindowColor);
-                ObjectSetInteger(0, thName, OBJPROP_FONTSIZE, TextSize);
+                ObjectSetInteger(0, thName, OBJPROP_COLOR, TICK_WINDOW_COLOR);
+                ObjectSetInteger(0, thName, OBJPROP_FONTSIZE, TEXT_SIZE);
                 ObjectSetInteger(0, thName, OBJPROP_ANCHOR, ANCHOR_CENTER);
                 ObjectSetInteger(0, thName, OBJPROP_BACK, false);
             }
@@ -537,9 +503,9 @@ void DrawThresholdWindows()
             ObjectDelete(0, "VolumeAnalysisWindow");
             if(ObjectCreate(0, "VolumeAnalysisWindow", OBJ_RECTANGLE, 0, vStart, vLo, vEnd, vHi))
             {
-                ObjectSetInteger(0, "VolumeAnalysisWindow", OBJPROP_COLOR, VolumeWindowColor);
+                ObjectSetInteger(0, "VolumeAnalysisWindow", OBJPROP_COLOR, VOLUME_WINDOW_COLOR);
                 ObjectSetInteger(0, "VolumeAnalysisWindow", OBJPROP_STYLE, STYLE_SOLID);
-                ObjectSetInteger(0, "VolumeAnalysisWindow", OBJPROP_WIDTH, ThresholdWindowWidth);
+                ObjectSetInteger(0, "VolumeAnalysisWindow", OBJPROP_WIDTH, THRESHOLD_WINDOW_WIDTH);
                 ObjectSetInteger(0, "VolumeAnalysisWindow", OBJPROP_BACK, true);
                 ObjectSetInteger(0, "VolumeAnalysisWindow", OBJPROP_FILL, false);
                 ObjectSetInteger(0, "VolumeAnalysisWindow", OBJPROP_SELECTABLE, false);
@@ -549,9 +515,9 @@ void DrawThresholdWindows()
             ObjectDelete(0, lbl);
             if(ObjectCreate(0, lbl, OBJ_TEXT, 0, vStart, vHi))
             {
-                ObjectSetString (0, lbl, OBJPROP_TEXT, "Volume Analysis (" + string(volumeAnalysisCount) + "/" + string(VolumeAnalysisWindowSize) + ")");
-                ObjectSetInteger(0, lbl, OBJPROP_COLOR, VolumeWindowColor);
-                ObjectSetInteger(0, lbl, OBJPROP_FONTSIZE, TextSize - 1);
+                ObjectSetString (0, lbl, OBJPROP_TEXT, "Volume Analysis (" + string(volumeAnalysisCount) + "/" + string(AnalysisWindowSize) + ")");
+                ObjectSetInteger(0, lbl, OBJPROP_COLOR, VOLUME_WINDOW_COLOR);
+                ObjectSetInteger(0, lbl, OBJPROP_FONTSIZE, TEXT_SIZE - 1);
                 ObjectSetInteger(0, lbl, OBJPROP_ANCHOR, ANCHOR_LEFT_UPPER);
                 ObjectSetInteger(0, lbl, OBJPROP_BACK, false);
             }
@@ -561,8 +527,8 @@ void DrawThresholdWindows()
             if(ObjectCreate(0, thName, OBJ_TEXT, 0, vStart + (vEnd - vStart) / 2, vHi + rng * 0.1))
             {
                 ObjectSetString (0, thName, OBJPROP_TEXT, StringFormat("Vol Th: %.0f / %.0f", dynamicVolumeBuyThreshold, dynamicVolumeSellThreshold));
-                ObjectSetInteger(0, thName, OBJPROP_COLOR, VolumeWindowColor);
-                ObjectSetInteger(0, thName, OBJPROP_FONTSIZE, TextSize);
+                ObjectSetInteger(0, thName, OBJPROP_COLOR, VOLUME_WINDOW_COLOR);
+                ObjectSetInteger(0, thName, OBJPROP_FONTSIZE, TEXT_SIZE);
                 ObjectSetInteger(0, thName, OBJPROP_ANCHOR, ANCHOR_CENTER);
                 ObjectSetInteger(0, thName, OBJPROP_BACK, false);
             }
@@ -577,7 +543,6 @@ void DrawThresholdWindows()
 //+------------------------------------------------------------------+
 void DisplayWindowStatistics()
 {
-    // Tick stats
     double tickMed = 0, tickMAD2 = 0;
     if(tickAnalysisCount > 0)
     {
@@ -596,13 +561,12 @@ void DisplayWindowStatistics()
         ObjectSetInteger(0, tsn, OBJPROP_XDISTANCE, 10);
         ObjectSetInteger(0, tsn, OBJPROP_YDISTANCE, 60);
         ObjectSetString (0, tsn, OBJPROP_TEXT, StringFormat("Tick Stats | Med: %.0f | MAD: %.0f | Mult: %.2f",
-            tickMed, tickMAD2, TickThresholdMultiplier));
-        ObjectSetInteger(0, tsn, OBJPROP_COLOR, TickWindowColor);
-        ObjectSetInteger(0, tsn, OBJPROP_FONTSIZE, TextSize - 1);
+            tickMed, tickMAD2, ThresholdMultiplier));
+        ObjectSetInteger(0, tsn, OBJPROP_COLOR, TICK_WINDOW_COLOR);
+        ObjectSetInteger(0, tsn, OBJPROP_FONTSIZE, TEXT_SIZE - 1);
         ObjectSetInteger(0, tsn, OBJPROP_BACK, false);
     }
 
-    // Volume stats
     double volMed = 0, volMAD2 = 0;
     if(volumeAnalysisCount > 0)
     {
@@ -621,9 +585,9 @@ void DisplayWindowStatistics()
         ObjectSetInteger(0, vsn, OBJPROP_XDISTANCE, 10);
         ObjectSetInteger(0, vsn, OBJPROP_YDISTANCE, 80);
         ObjectSetString (0, vsn, OBJPROP_TEXT, StringFormat("Vol Stats | Med: %.0f | MAD: %.0f | Mult: %.2f",
-            volMed, volMAD2, VolumeThresholdMultiplier));
-        ObjectSetInteger(0, vsn, OBJPROP_COLOR, VolumeWindowColor);
-        ObjectSetInteger(0, vsn, OBJPROP_FONTSIZE, TextSize - 1);
+            volMed, volMAD2, ThresholdMultiplier));
+        ObjectSetInteger(0, vsn, OBJPROP_COLOR, VOLUME_WINDOW_COLOR);
+        ObjectSetInteger(0, vsn, OBJPROP_FONTSIZE, TEXT_SIZE - 1);
         ObjectSetInteger(0, vsn, OBJPROP_BACK, false);
     }
 }
@@ -633,8 +597,6 @@ void DisplayWindowStatistics()
 //+------------------------------------------------------------------+
 void UpdateThresholdWindows()
 {
-    if(!ShowThresholdWindows) return;
-
     ObjectDelete(0, "TickAnalysisWindow");
     ObjectDelete(0, "VolumeAnalysisWindow");
     ObjectDelete(0, "TickWindowLabel");

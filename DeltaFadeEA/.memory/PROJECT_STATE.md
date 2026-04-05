@@ -5,23 +5,20 @@
 ## Last Updated: 2026-04-06
 
 ## Recent Changes
-- 2026-04-06 — v2.00: Strategy + backtest speed overhaul
-  - Lowered default MAD multipliers 2.5 → 1.5 (more frequent signals)
-  - Shrunk analysis windows 100 → 50 (more responsive)
-  - Added RequireBothDeltas input (default: false = either delta triggers)
-  - Added RequireSlopeConfirmation input (default: false = slope is bypassed)
-  - Added RiskRewardRatio input (default: 2.0, used when TakeProfitPoints = 0)
-  - TakeProfitPoints default changed to 0 (auto-calculated from SL * RR)
-  - Tester mode detection: skips ALL visuals in non-visual backtest
-  - Intra-bar processing skipped entirely in non-visual backtest
-  - Version bumped to 2.00
-- 2026-04-06 — v1.00: Initial decoupling from SlidingWindow.mq5 (2160 lines)
-  - Replaced raw OrderSend with CTrade/CPositionInfo
-  - Centralised magic number, weight constants, MAD params into Config.mqh
-  - Removed unused DisplayThresholdValues() function
-  - Added [DeltaFadeEA] prefix to all Print statements
+- 2026-04-06 — v2.10: Input cleanup for XAUUSD 1M/3M/5M
+  - Removed 50+ useless inputs: 24 hour bools, 7 day bools, all visual colour/size inputs, separate tick/volume window sizes and multipliers, TrailingStep, ShowThresholdWindows, ShowVolumeFootprintLine
+  - Merged TickAnalysisWindowSize + VolumeAnalysisWindowSize → single AnalysisWindowSize (default 50)
+  - Merged TickThresholdMultiplier + VolumeThresholdMultiplier → single ThresholdMultiplier (default 1.5)
+  - Replaced 24 hour bools with StartHour/EndHour range (default 7–17)
+  - Replaced 7 day bools with hardcoded Mon–Fri (weekends always blocked)
+  - EA_MAGIC replaced with MagicNumber input
+  - MaxSpread default 3 → 30 (for XAUUSD)
+  - Slippage default 3 → 10 (for XAUUSD)
+  - TakeProfitPoints default → 0 (uses RiskRewardRatio = 2.0)
+  - All visual constants hardcoded as #defines
+  - Signal.mqh: consolidated duplicate threshold logic into CalculateThresholdsFromData()
+  - Config now has only 16 inputs (was 60+)
 
 ## Known Issues / TODOs
-- [ ] TrailingStep input defined but not used (only TrailingStart is used as fixed distance)
 - [ ] Analysis window O(n*m) lookup in DrawThresholdWindows could be optimised with index mapping
 - [ ] Consider adding max-positions-per-symbol limit

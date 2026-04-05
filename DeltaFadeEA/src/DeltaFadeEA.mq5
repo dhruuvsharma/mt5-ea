@@ -4,7 +4,7 @@
 //|                              www.linkedin.com/in/dhruvsharmainfo |
 //+------------------------------------------------------------------+
 #property copyright "Dhruv Sharma"
-#property version   "2.00"
+#property version   "2.10"
 #property description "Contrarian scalper that fades cumulative tick/volume delta extremes using dynamic Median+MAD thresholds and volume-weighted price slope confirmation."
 
 #include "Config.mqh"
@@ -47,7 +47,7 @@ int OnInit()
     {
         DrawRectangle();
         DrawVolumeFootprintLine();
-        if(ShowThresholdWindows) DrawThresholdWindows();
+        DrawThresholdWindows();
     }
 
     Print("[", EA_NAME, "] v", EA_VERSION, " initialised",
@@ -146,7 +146,7 @@ void RedrawVisuals()
     DrawRectangle();
     DrawVolumeFootprintLine();
     DisplayDeltas();
-    if(ShowThresholdWindows) UpdateThresholdWindows();
+    UpdateThresholdWindows();
 }
 
 //+------------------------------------------------------------------+
