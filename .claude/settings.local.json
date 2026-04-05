@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(iconv -f UTF-16LE -t UTF-8 \"D:/Github/mt5-ea/SlidingWindow.mq5\")",
+      "Read(//tmp/**)",
+      "Bash(python3:*)",
+      "Bash(python:*)",
+      "Bash(mkdir -p \"D:/Github/mt5-ea/DeltaFadeEA/src\")",
+      "Bash(mkdir -p \"D:/Github/mt5-ea/DeltaFadeEA/.memory\")",
+      "Bash(wc:*)"
+    ]
+  }
+}
