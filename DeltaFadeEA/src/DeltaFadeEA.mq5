@@ -4,8 +4,8 @@
 //|                              www.linkedin.com/in/dhruvsharmainfo |
 //+------------------------------------------------------------------+
 #property copyright "Dhruv Sharma"
-#property version   "2.10"
-#property description "Contrarian scalper that fades cumulative tick/volume delta extremes using dynamic Median+MAD thresholds and volume-weighted price slope confirmation."
+#property version   "3.00"
+#property description "Trend-following pullback scalper on XAUUSD. Uses EMA for trend direction, cumulative tick/volume delta for pullback detection, and dynamic Median+MAD thresholds."
 
 #include "Config.mqh"
 #include "Market.mqh"
@@ -17,8 +17,8 @@
 //--- Bar tracking
 datetime lastBarTime = 0;
 
-//--- Tester mode flag (set once in OnInit, avoids repeated calls)
-bool isTester      = false;
+//--- Tester mode flag (set once in OnInit)
+bool isTester       = false;
 bool isTesterVisual = false;
 
 //+------------------------------------------------------------------+
@@ -37,12 +37,12 @@ int OnInit()
     CalculateDeltas();
     CalculateVolumeFootprint();
     CalculateTicksPerSecond();
+    UpdateEMA();
     InitializeAnalysisWindows();
 
     CalculateDynamicTickThresholds();
     CalculateDynamicVolumeThresholds();
 
-    // Only draw visuals when NOT in backtest (or in visual mode)
     if(!isTester || isTesterVisual)
     {
         DrawRectangle();
@@ -52,10 +52,12 @@ int OnInit()
 
     Print("[", EA_NAME, "] v", EA_VERSION, " initialised",
           isTester ? " [TESTER MODE]" : "");
-    Print("[", EA_NAME, "] Trading=", EnableTrading,
+    Print("[", EA_NAME, "] Mode=", TrendFollowing ? "TrendPullback" : "Contrarian",
+          "  EMA=", TrendEMAPeriod,
           "  BothDeltas=", RequireBothDeltas,
           "  SlopeConfirm=", RequireSlopeConfirmation,
-          "  TimeFilter=", EnableTimeFilter);
+          "  MaxTrades/Day=", MaxTradesPerDay,
+          "  Cooldown=", MinBarsBetweenTrades, " bars");
 
     return INIT_SUCCEEDED;
 }
@@ -65,6 +67,7 @@ int OnInit()
 //+------------------------------------------------------------------+
 void OnDeinit(const int reason)
 {
+    MarketDeinit();
     if(!isTester || isTesterVisual)
         CleanupObjects();
     Print("[", EA_NAME, "] deinitialised");
@@ -81,14 +84,13 @@ void OnTick()
     if(isNewBar)
     {
         lastBarTime = curBarTime;
-        OnNewBar();
+        ProcessNewBar();
     }
     else
     {
-        // In tester (non-visual): skip intra-bar updates entirely
         if(isTester && !isTesterVisual)
             return;
-        OnSameBar();
+        ProcessSameBar();
     }
 
     if(!isTester || isTesterVisual)
@@ -101,11 +103,16 @@ void OnTick()
 //+------------------------------------------------------------------+
 //| New-bar logic                                                    |
 //+------------------------------------------------------------------+
-void OnNewBar()
+void ProcessNewBar()
 {
+    // Update bar cooldown counter
+    OnNewBarSignal();
+
+    // Recalculate all market data
     CalculateDeltas();
     CalculateVolumeFootprint();
     CalculateTicksPerSecond();
+    UpdateEMA();
 
     if(WindowSize > 1)
     {
@@ -123,9 +130,9 @@ void OnNewBar()
 }
 
 //+------------------------------------------------------------------+
-//| Same-bar (intra-bar) logic — live / visual-tester only           |
+//| Same-bar (intra-bar) — live / visual-tester only                 |
 //+------------------------------------------------------------------+
-void OnSameBar()
+void ProcessSameBar()
 {
     UpdateCurrentCandleDelta();
     UpdateCurrentVolumeFootprint();
@@ -133,9 +140,6 @@ void OnSameBar()
 
     if(!isTester || isTesterVisual)
         RedrawVisuals();
-
-    if(EnableTrading && IsTradeTime() && IsTradingAllowed())
-        EvaluateAndExecute();
 }
 
 //+------------------------------------------------------------------+
@@ -159,13 +163,13 @@ void EvaluateAndExecute()
     if(signalLong && !HasLongPosition())
     {
         if(!isTester || isTesterVisual)
-            DisplaySignal("LONG - Dynamic Thresholds", clrLime);
+            DisplaySignal("LONG — Trend Pullback", clrLime);
         EnterLong();
     }
     if(signalShort && !HasShortPosition())
     {
         if(!isTester || isTesterVisual)
-            DisplaySignal("SHORT - Dynamic Thresholds", clrRed);
+            DisplaySignal("SHORT — Trend Pullback", clrRed);
         EnterShort();
     }
     if(!signalLong && !signalShort)

@@ -32,11 +32,23 @@ int      volumeAnalysisCount = 0;
 long   totalTicksInWindow    = 0;
 double averageTicksPerSecond = 0;
 
+//--- Trend EMA
+int    emaHandle = INVALID_HANDLE;
+double emaValue  = 0;
+
 //+------------------------------------------------------------------+
 //| Allocate and zero all market arrays                              |
 //+------------------------------------------------------------------+
 void MarketInit()
 {
+    // Create EMA indicator handle
+    if(TrendEMAPeriod > 0)
+    {
+        emaHandle = iMA(_Symbol, _Period, TrendEMAPeriod, 0, MODE_EMA, PRICE_CLOSE);
+        if(emaHandle == INVALID_HANDLE)
+            Print("[", EA_NAME, "] Warning: Failed to create EMA handle");
+    }
+
     ArrayResize(volumeDelta,          WindowSize);
     ArrayResize(tickDelta,            WindowSize);
     ArrayResize(ticksPerSecond,       WindowSize);
@@ -354,6 +366,41 @@ double CalculateMAD(double &data[], double median, int count)
 double GetCurrentSpread()
 {
     return SymbolInfoInteger(_Symbol, SYMBOL_SPREAD) * _Point;
+}
+
+//+------------------------------------------------------------------+
+//| Update EMA value from indicator buffer                           |
+//+------------------------------------------------------------------+
+void UpdateEMA()
+{
+    if(emaHandle == INVALID_HANDLE) return;
+
+    double buf[1];
+    if(CopyBuffer(emaHandle, 0, 0, 1, buf) == 1)
+        emaValue = buf[0];
+}
+
+//+------------------------------------------------------------------+
+//| Trend direction: +1 bullish, -1 bearish, 0 no trend/disabled    |
+//+------------------------------------------------------------------+
+int GetTrendDirection()
+{
+    if(TrendEMAPeriod <= 0 || emaHandle == INVALID_HANDLE)
+        return 0;
+
+    double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+    if(bid > emaValue) return  1;  // Price above EMA = uptrend
+    if(bid < emaValue) return -1;  // Price below EMA = downtrend
+    return 0;
+}
+
+//+------------------------------------------------------------------+
+//| Release indicator handle                                         |
+//+------------------------------------------------------------------+
+void MarketDeinit()
+{
+    if(emaHandle != INVALID_HANDLE)
+        IndicatorRelease(emaHandle);
 }
 
 #endif

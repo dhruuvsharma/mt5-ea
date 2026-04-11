@@ -7,42 +7,50 @@
 
 //--- EA Identity
 #define EA_NAME        "DeltaFadeEA"
-#define EA_VERSION     "2.10"
+#define EA_VERSION     "3.00"
 
 //+------------------------------------------------------------------+
-//| INPUTS — only what matters                                       |
+//| INPUTS                                                           |
 //+------------------------------------------------------------------+
 
 //--- Core
-input int    MagicNumber  = 12345;  // Magic number
-input bool   EnableTrading = true;  // Enable automated trading
+input int    MagicNumber   = 12345;  // Magic number
+input bool   EnableTrading = true;   // Enable automated trading
 
 //--- Sliding Window
 input int    WindowSize          = 20;   // Candles in trading window
 input int    AnalysisWindowSize  = 50;   // Candles in threshold analysis window
 
+//--- Trend Filter
+input int    TrendEMAPeriod = 50;    // EMA period for trend direction (0 = disabled)
+input bool   TrendFollowing = true;  // true = trade WITH trend pullbacks, false = fade (contrarian)
+
 //--- Signal Tuning
-input double ThresholdMultiplier       = 1.5;   // MAD multiplier for dynamic thresholds
-input bool   RequireBothDeltas         = false;  // Require BOTH tick+vol (false = either)
-input bool   RequireSlopeConfirmation  = false;  // Require VWP slope confirmation
+input double ThresholdMultiplier       = 2.0;   // MAD multiplier for dynamic thresholds
+input bool   RequireBothDeltas         = true;   // Require BOTH tick+vol deltas
+input bool   RequireSlopeConfirmation  = true;   // Require VWP slope confirmation
+
+//--- Trade Management
+input int    MaxTradesPerDay       = 5;     // Max trades per day (0 = unlimited)
+input int    MinBarsBetweenTrades  = 10;    // Cooldown bars between trades
 
 //--- Risk Management
 input double LotSize           = 0.01;  // Fixed lot size (0 = risk-based)
 input double RiskPercent       = 2.0;   // Risk % per trade (when LotSize = 0)
-input int    StopLossPoints    = 300;   // SL in points
+input int    StopLossPoints    = 500;   // SL in points ($5 on XAUUSD)
 input int    TakeProfitPoints  = 0;     // TP in points (0 = use RR ratio)
-input double RiskRewardRatio   = 2.0;   // R:R ratio (used when TP = 0)
+input double RiskRewardRatio   = 0.6;   // R:R ratio — TP = 300pts ($3) for high WR
 input int    MaxSpread         = 30;    // Max spread in points
 input int    Slippage          = 10;    // Max slippage in points
 input int    TrailingStart     = 200;   // Trailing stop distance in points
 
 //--- Session Filter
 input bool   EnableTimeFilter = true;  // Enable session time filter
-input int    StartHour        = 7;     // Session start hour (0-23)
-input int    EndHour          = 17;    // Session end hour (0-23)
+input int    StartHour        = 8;     // Session start hour (London open)
+input int    EndHour          = 17;    // Session end hour (NY close)
 
 //+------------------------------------------------------------------+
-//| HARDCODED CONSTANTS — not worth exposing as inputs               |
+//| HARDCODED CONSTANTS                                              |
 //+------------------------------------------------------------------+
 
 //--- Visual defaults (only used in live / visual-tester)
@@ -67,8 +75,5 @@ input int    EndHour          = 17;    // Session end hour (0-23)
 //--- Statistical
 #define MIN_MAD_VALUE       10.0
 #define MAD_SCALE_FACTOR    1.4826
-
-//--- Trade throttle
-#define MIN_TRADE_DELAY     5
 
 #endif

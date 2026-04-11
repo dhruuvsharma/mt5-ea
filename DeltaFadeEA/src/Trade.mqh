@@ -9,13 +9,11 @@
 #include <Trade\PositionInfo.mqh>
 #include "Config.mqh"
 #include "Risk.mqh"
+#include "Signal.mqh"
 
 //--- CTrade instance
 CTrade         trade;
 CPositionInfo  posInfo;
-
-//--- Throttle
-datetime lastTradeTime = 0;
 
 //+------------------------------------------------------------------+
 //| Initialise CTrade with magic and slippage                        |
@@ -28,20 +26,10 @@ void TradeInit()
 }
 
 //+------------------------------------------------------------------+
-//| Minimum delay between trades                                     |
-//+------------------------------------------------------------------+
-bool IsTradeTime()
-{
-    return (TimeCurrent() - lastTradeTime >= MIN_TRADE_DELAY);
-}
-
-//+------------------------------------------------------------------+
 //| Open a BUY market order                                          |
 //+------------------------------------------------------------------+
 void EnterLong()
 {
-    if(!IsTradeTime()) return;
-
     double ask  = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
     double lots = CalculatePositionSize();
     double sl   = CalculateBuySL(ask);
@@ -50,7 +38,7 @@ void EnterLong()
     if(trade.Buy(lots, _Symbol, ask, sl, tp, EA_NAME " Long"))
     {
         Print("[", EA_NAME, "] BUY opened — ticket #", trade.ResultOrder());
-        lastTradeTime = TimeCurrent();
+        OnTradeExecuted();
     }
     else
     {
@@ -63,8 +51,6 @@ void EnterLong()
 //+------------------------------------------------------------------+
 void EnterShort()
 {
-    if(!IsTradeTime()) return;
-
     double bid  = SymbolInfoDouble(_Symbol, SYMBOL_BID);
     double lots = CalculatePositionSize();
     double sl   = CalculateSellSL(bid);
@@ -73,7 +59,7 @@ void EnterShort()
     if(trade.Sell(lots, _Symbol, bid, sl, tp, EA_NAME " Short"))
     {
         Print("[", EA_NAME, "] SELL opened — ticket #", trade.ResultOrder());
-        lastTradeTime = TimeCurrent();
+        OnTradeExecuted();
     }
     else
     {
@@ -89,8 +75,8 @@ void ManagePositions()
     for(int i = PositionsTotal() - 1; i >= 0; i--)
     {
         if(!posInfo.SelectByIndex(i)) continue;
-        if(posInfo.Symbol() != _Symbol)        continue;
-        if(posInfo.Magic()  != MagicNumber)       continue;
+        if(posInfo.Symbol() != _Symbol)    continue;
+        if(posInfo.Magic()  != MagicNumber) continue;
 
         ApplyTrailingStop(posInfo.Ticket());
     }

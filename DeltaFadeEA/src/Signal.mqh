@@ -20,28 +20,75 @@ double baseTickSellThreshold        = -1000;
 double baseVolumeBuyThreshold       =  800;
 double baseVolumeSellThreshold      = -800;
 
-//--- Last signal state
+//--- Signal state
 bool signalLong  = false;
 bool signalShort = false;
 
+//--- Trade management tracking
+int      tradesToday       = 0;
+datetime lastTradeDay      = 0;
+int      barsSinceLastTrade = 999;
+
 //+------------------------------------------------------------------+
-//| Clamp a threshold within [min..max] of its base, sign-aware     |
+//| Reset daily trade counter at day change                          |
+//+------------------------------------------------------------------+
+void UpdateDailyTradeCount()
+{
+    MqlDateTime t;
+    TimeToStruct(TimeCurrent(), t);
+    datetime today = StringToTime(IntegerToString(t.year) + "." +
+                                  IntegerToString(t.mon) + "." +
+                                  IntegerToString(t.day));
+    if(today != lastTradeDay)
+    {
+        tradesToday  = 0;
+        lastTradeDay = today;
+    }
+}
+
+//+------------------------------------------------------------------+
+//| Record that a trade was taken                                    |
+//+------------------------------------------------------------------+
+void OnTradeExecuted()
+{
+    tradesToday++;
+    barsSinceLastTrade = 0;
+}
+
+//+------------------------------------------------------------------+
+//| Increment bar counter (call on each new bar)                     |
+//+------------------------------------------------------------------+
+void OnNewBarSignal()
+{
+    barsSinceLastTrade++;
+}
+
+//+------------------------------------------------------------------+
+//| Can we trade right now? (daily limit + cooldown)                 |
+//+------------------------------------------------------------------+
+bool IsTradeAllowedByLimits()
+{
+    if(MaxTradesPerDay > 0 && tradesToday >= MaxTradesPerDay)
+        return false;
+    if(barsSinceLastTrade < MinBarsBetweenTrades)
+        return false;
+    return true;
+}
+
+//+------------------------------------------------------------------+
+//| Clamp threshold within bounds, sign-aware                        |
 //+------------------------------------------------------------------+
 double ApplyThresholdBounds(double raw, double base, bool isBuy)
 {
     if(isBuy)
     {
         if(raw < 0) raw = MathAbs(raw);
-        double lo = base * THRESHOLD_MIN_MULT;
-        double hi = base * THRESHOLD_MAX_MULT;
-        return MathMin(MathMax(raw, lo), hi);
+        return MathMin(MathMax(raw, base * THRESHOLD_MIN_MULT), base * THRESHOLD_MAX_MULT);
     }
     else
     {
         if(raw > 0) raw = -raw;
-        double lo = base * THRESHOLD_MIN_MULT;   // negative
-        double hi = base * THRESHOLD_MAX_MULT;   // negative
-        return MathMax(MathMin(raw, lo), hi);
+        return MathMax(MathMin(raw, base * THRESHOLD_MIN_MULT), base * THRESHOLD_MAX_MULT);
     }
 }
 
@@ -80,8 +127,6 @@ void CalculateThresholdsFromData(double &data[], int count,
 }
 
 //+------------------------------------------------------------------+
-//| Recalculate dynamic tick thresholds                              |
-//+------------------------------------------------------------------+
 void CalculateDynamicTickThresholds()
 {
     CalculateThresholdsFromData(tickAnalysisData, tickAnalysisCount,
@@ -89,8 +134,6 @@ void CalculateDynamicTickThresholds()
         dynamicTickBuyThreshold, dynamicTickSellThreshold);
 }
 
-//+------------------------------------------------------------------+
-//| Recalculate dynamic volume thresholds                            |
 //+------------------------------------------------------------------+
 void CalculateDynamicVolumeThresholds()
 {
@@ -100,58 +143,83 @@ void CalculateDynamicVolumeThresholds()
 }
 
 //+------------------------------------------------------------------+
-//| Evaluate entry signals — contrarian delta + optional slope       |
+//| Core signal logic — trend-following pullback OR contrarian       |
 //+------------------------------------------------------------------+
 void CheckTradingSignals()
 {
     signalLong  = false;
     signalShort = false;
 
+    // Spread filter
     if(GetCurrentSpread() > MaxSpread * _Point)
         return;
 
-    int slope = GetVolumeLineSlope();
+    // Trade limits
+    UpdateDailyTradeCount();
+    if(!IsTradeAllowedByLimits())
+        return;
 
-    bool tickSell = (cumulativeTickDelta   > dynamicTickBuyThreshold);
-    bool tickBuy  = (cumulativeTickDelta   < dynamicTickSellThreshold);
-    bool volSell  = (cumulativeVolumeDelta > dynamicVolumeBuyThreshold);
-    bool volBuy   = (cumulativeVolumeDelta < dynamicVolumeSellThreshold);
+    // Delta extremes
+    bool tickOverbought  = (cumulativeTickDelta   > dynamicTickBuyThreshold);
+    bool tickOversold    = (cumulativeTickDelta   < dynamicTickSellThreshold);
+    bool volOverbought   = (cumulativeVolumeDelta > dynamicVolumeBuyThreshold);
+    bool volOversold     = (cumulativeVolumeDelta < dynamicVolumeSellThreshold);
 
-    // Delta filter: require both or accept either
-    bool sellDelta, buyDelta;
+    // Combine deltas
+    bool deltaOverbought, deltaOversold;
     if(RequireBothDeltas)
     {
-        sellDelta = tickSell && volSell;
-        buyDelta  = tickBuy  && volBuy;
+        deltaOverbought = tickOverbought && volOverbought;
+        deltaOversold   = tickOversold   && volOversold;
     }
     else
     {
-        sellDelta = tickSell || volSell;
-        buyDelta  = tickBuy  || volBuy;
+        deltaOverbought = tickOverbought || volOverbought;
+        deltaOversold   = tickOversold   || volOversold;
     }
 
-    // Slope filter: hard gate or bypassed
-    bool slopeOkShort = !RequireSlopeConfirmation || (slope == 1);
-    bool slopeOkLong  = !RequireSlopeConfirmation || (slope == -1);
+    // VWP slope
+    int slope = GetVolumeLineSlope();
+    bool slopeUp   = !RequireSlopeConfirmation || (slope == 1);
+    bool slopeDown = !RequireSlopeConfirmation || (slope == -1);
 
-    static bool prevLong  = false;
-    static bool prevShort = false;
+    // Trend direction from EMA
+    int trend = GetTrendDirection();
 
-    if(sellDelta && slopeOkShort)
+    if(TrendFollowing && trend != 0)
     {
-        signalShort = true;
-        if(!prevShort)
-            Print("[", EA_NAME, "] SHORT signal — delta sell + slope=", slope);
+        //--------------------------------------------------------------
+        // TREND-FOLLOWING PULLBACK MODE
+        // Uptrend + delta oversold (pullback) → BUY the dip
+        // Downtrend + delta overbought (bounce) → SELL the rally
+        //--------------------------------------------------------------
+        if(trend == 1 && deltaOversold && slopeDown)
+        {
+            signalLong = true;
+            Print("[", EA_NAME, "] LONG — uptrend pullback detected (EMA trend + delta oversold + red slope)");
+        }
+        else if(trend == -1 && deltaOverbought && slopeUp)
+        {
+            signalShort = true;
+            Print("[", EA_NAME, "] SHORT — downtrend bounce detected (EMA trend + delta overbought + green slope)");
+        }
     }
-    else if(buyDelta && slopeOkLong)
+    else
     {
-        signalLong = true;
-        if(!prevLong)
-            Print("[", EA_NAME, "] LONG signal — delta buy + slope=", slope);
+        //--------------------------------------------------------------
+        // CONTRARIAN MODE (original logic, no trend filter)
+        //--------------------------------------------------------------
+        if(deltaOverbought && slopeUp)
+        {
+            signalShort = true;
+            Print("[", EA_NAME, "] SHORT — contrarian fade (delta overbought)");
+        }
+        else if(deltaOversold && slopeDown)
+        {
+            signalLong = true;
+            Print("[", EA_NAME, "] LONG — contrarian fade (delta oversold)");
+        }
     }
-
-    prevLong  = signalLong;
-    prevShort = signalShort;
 }
 
 #endif
