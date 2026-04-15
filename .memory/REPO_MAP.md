@@ -1,7 +1,7 @@
 # Repo Map
 
 ## Last Updated
-2026-04-11
+2026-04-14
 
 ## EAs Index
 | Folder | Strategy Summary | Status | Files |
@@ -10,6 +10,7 @@
 | DeltaFadeEA | Contrarian scalper — fades cumulative tick/volume delta extremes using dynamic Median+MAD thresholds over rolling analysis windows, confirmed by volume-weighted price line slope. Day/hour time filter, trailing stop. | Active | Config.mqh, Market.mqh, Signal.mqh, Risk.mqh, Trade.mqh, Utils.mqh, DeltaFadeEA.mq5 |
 
 | CumulativeDeltaScalper | Tick-level cumulative delta scalper — sliding window of N candle deltas (uptick−downtick), enters on threshold crossover, 15M EMA trend filter, ATR-based SL/TP, breakeven, session/spread/daily guards. EURUSD M1/M3/M5. | Active | Config.mqh, Market.mqh, Signal.mqh, Risk.mqh, Trade.mqh, Utils.mqh, CumulativeDeltaScalper.mq5 |
+| FootprintChartPro | Professional order flow visualization — canvas-based delta cells footprint with 11 analysis panels (DOM, Volume Profile, Time & Sales, Signal Meter, Chart Analyst, RSI, MACD, S&D Zones, Calendar, Mini Session Chart). 16 themes, volume inference engine, 3-tier imbalance detection. Visualization only, no trading. | Active | Config.mqh, Market.mqh, Signal.mqh, Render.mqh, Panels.mqh, FootprintChartPro.mq5 |
 
 ## Notes
 - Each EA lives in its own folder with a src/ and .memory/ subfolder

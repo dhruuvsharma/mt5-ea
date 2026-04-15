@@ -145,4 +145,25 @@ int GetSpreadPoints()
    return (int)SymbolInfoInteger(_Symbol, SYMBOL_SPREAD);
 }
 
+//+------------------------------------------------------------------+
+//| Get deltas in chronological bar order (oldest→newest)             |
+//| deltas[0] = oldest bar in window, deltas[count-1] = newest       |
+//| count = number of filled slots                                    |
+//+------------------------------------------------------------------+
+int GetOrderedDeltas(int &deltas[])
+{
+   int count = MathMin(g_bufferFilled, WindowSize);
+   ArrayResize(deltas, count);
+
+   //--- Oldest entry is at g_bufferIndex (if full) or 0 (if not full)
+   int start = (g_bufferFilled >= WindowSize) ? g_bufferIndex : 0;
+
+   for(int i = 0; i < count; i++)
+   {
+      int idx = (start + i) % WindowSize;
+      deltas[i] = g_deltaBuffer[idx];
+   }
+   return count;
+}
+
 #endif

@@ -31,6 +31,11 @@ input int    MaxDailyTrades     = 8;    // Max trades per day
 input double MaxDailyLossPercent= 2.0;  // Max daily loss % of balance
 input int    CooldownMinutes    = 15;   // Minutes to pause after a loss
 
+//--- Display
+input group "Display"
+input bool   ShowUI           = true;     // Show chart UI (window, deltas, footprint)
+input double FootprintBlockPips = 1.0;   // Price level height in pips for footprint cells
+
 //--- EA Identity
 input group "EA Identity"
 input int    MagicNumber      = 20250411; // EA magic number
@@ -45,6 +50,18 @@ input string EAComment        = "CDScalper"; // Trade comment
 #define DASHBOARD_FONT       "Consolas"
 #define DASHBOARD_LINE_HEIGHT 18
 #define BE_BUFFER_PIPS 0.5   // Breakeven buffer above entry
+
+//--- Sliding Window UI Constants
+#define SW_RECT_NAME          "CDScalper_SlidingWindow_Rect"
+#define SW_DELTA_PREFIX       "CDScalper_Delta_"
+#define SW_LIVE_DELTA_NAME    "CDScalper_LiveDelta"
+#define SW_CUMDELTA_NAME      "CDScalper_CumDelta_Label"
+#define SW_TEXT_SIZE           8
+#define SW_RECT_WIDTH         2
+#define SW_RECT_STYLE         STYLE_DOT
+#define SW_FP_BG_PREFIX       "CDScalper_FpBg_"
+#define SW_FP_TX_PREFIX       "CDScalper_FpTx_"
+#define SW_FP_MAX_LEVELS      40
 
 //--- Global State Variables
 int    g_atrHandle       = INVALID_HANDLE;
