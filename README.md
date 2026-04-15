@@ -7,6 +7,9 @@ A personal collection of MetaTrader 5 Expert Advisors and indicators built and m
 | Name | Type | Instrument | Strategy | Status |
 |------|------|-----------|----------|--------|
 | [SwingTagEA](./SwingTagEA) | EA | DAX / GER40 | 3-bar swing pivot fade — limit orders at swing highs/lows | Active |
+| [DeltaFadeEA](./DeltaFadeEA) | EA | DAX / GER40 | Contrarian scalper — fades cumulative tick/volume delta extremes using dynamic Median+MAD thresholds, confirmed by volume-weighted price line slope. Trailing stop | Active |
+| [CumulativeDeltaScalper](./CumulativeDeltaScalper) | EA | EURUSD M1/M3/M5 | Tick-level cumulative delta scalper — sliding window of N candle deltas, enters on threshold crossover, 15M EMA trend filter, ATR-based SL/TP, breakeven, session/spread/daily guards | Active |
+| [FootprintChartPro](./FootprintChartPro) | Indicator | Any | Professional order flow visualization — canvas-based delta cells footprint with 11 analysis panels (DOM, Volume Profile, Time & Sales, Signal Meter, etc.), 16 themes, volume inference engine, 3-tier imbalance detection. Visualization only | Active |
 
 ## Repository Structure
 
