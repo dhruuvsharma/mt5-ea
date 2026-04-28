@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "model": "claude-sonnet-4-6",
+  "permissions": {
+    "allow": [
+      "Read(//tmp/**)",
+      "Bash(mkdir -p:*)",
+      "Bash(mkdir:*)",
+      "Bash(iconv:*)",
+      "Bash(robocopy:*)",
+      "PowerShell(robocopy:*)",
+      "PowerShell(Move-Item:*)",
+      "PowerShell(Test-Path:*)",
+      "PowerShell(Get-ChildItem:*)",
+      "PowerShell(Remove-Item:*)"
+    ]
+  }
+}

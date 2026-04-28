@@ -8,7 +8,14 @@
       "Bash(mkdir -p \"D:/Github/mt5-ea/DeltaFadeEA/src\")",
       "Bash(mkdir -p \"D:/Github/mt5-ea/DeltaFadeEA/.memory\")",
       "Bash(wc:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(rm -rf /d/Github/mt5-ea/mt5-microstructure-scalper/.git)",
+      "Bash(mv /d/Github/mt5-ea/mt5-microstructure-scalper /d/Github/mt5-ea/ApexScalper)",
+      "PowerShell(robocopy \"D:\\\\Github\\\\mt5-ea\\\\mt5-microstructure-scalper\" \"D:\\\\Github\\\\mt5-ea\\\\ApexScalper\" /E /MOVE /NFL /NDL /NP /NJH /NJS; Write-Output \"exitcode=$LASTEXITCODE\"; if \\(Test-Path \"D:\\\\Github\\\\mt5-ea\\\\mt5-microstructure-scalper\"\\) { Write-Output \"old folder still exists\"; Get-ChildItem \"D:\\\\Github\\\\mt5-ea\\\\mt5-microstructure-scalper\" -Force } else { Write-Output \"old folder gone\" }; Write-Output \"---new folder---\"; Get-ChildItem \"D:\\\\Github\\\\mt5-ea\\\\ApexScalper\" -Force | Select-Object -First 10 Name)",
+      "Bash(cp /tmp/recent_transcripts.txt /c/Users/dhruv/AppData/Local/Temp/recent_transcripts.txt)",
+      "Bash(cp /tmp/extract_tools.py /c/Users/dhruv/AppData/Local/Temp/extract_tools.py)",
+      "Bash(git -C /d/Github/mt5-ea diff README.md .memory/REPO_MAP.md .claude/settings.local.json)",
+      "Bash(git *)"
     ]
   }
 }
