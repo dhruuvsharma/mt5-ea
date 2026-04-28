@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find . -name \"*.mqh\" -exec grep -l \"#pragma once\" {})",
+      "Bash(while read:*)",
+      "Bash(do sed:*)",
+      "Bash(done)"
+    ]
+  }
+}
