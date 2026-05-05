@@ -1,0 +1,7 @@
+# MQL5 compiled binaries
+*.ex5
+*.ex4
+
+# OS
+.DS_Store
+Thumbs.db
